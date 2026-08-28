@@ -10,11 +10,15 @@ Setup:
 """
 
 import argparse
+import random
 import sys
+from pathlib import Path
 
 import numpy as np
 import sounddevice as sd
 from pedalboard import Pedalboard, Reverb, Gain, HighpassFilter, Convolution
+
+IR_DIR = Path(__file__).resolve().parent / "irs"
 
 
 def list_devices():
@@ -108,6 +112,8 @@ def main():
                    help="convolution reverb using an impulse response WAV "
                         "(overrides Freeverb; only --wet and --hpf apply). "
                         "Try IRs from https://www.openair.hosted.york.ac.uk/")
+    p.add_argument("--random-ir", action="store_true",
+                   help=f"pick a random *.wav from {IR_DIR}/ (searched recursively)")
 
     args = p.parse_args()
 
@@ -125,7 +131,17 @@ def main():
             params[k] = v
 
     sr = args.samplerate
-    board = build_board(params, ir_path=args.ir, sample_rate=sr)
+
+    ir_path = args.ir
+    if args.random_ir:
+        if not IR_DIR.exists():
+            sys.exit(f"cathedral: no IR directory at {IR_DIR} — put some .wav files there first")
+        wavs = sorted(IR_DIR.rglob("*.wav")) + sorted(IR_DIR.rglob("*.WAV"))
+        if not wavs:
+            sys.exit(f"cathedral: no .wav files under {IR_DIR}")
+        ir_path = str(random.choice(wavs))
+
+    board = build_board(params, ir_path=ir_path, sample_rate=sr)
 
     def callback(indata, outdata, frames, time_info, status):
         if status:
@@ -140,8 +156,8 @@ def main():
     print(f"input  = [{in_idx}] {sd.query_devices(in_idx)['name']}")
     print(f"output = " + (f"[{out_idx}] {sd.query_devices(out_idx)['name']}"
                           if out_idx is not None else "system default"))
-    if args.ir:
-        print(f"ir     = {args.ir}  wet={params['wet']}  hpf={params['hpf']}")
+    if ir_path:
+        print(f"ir     = {ir_path}  wet={params['wet']}  hpf={params['hpf']}")
     else:
         print(f"preset = {args.preset}  " +
               "  ".join(f"{k}={params[k]}" for k in ("room", "damping", "wet", "dry", "width", "hpf")))

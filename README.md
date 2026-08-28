@@ -58,6 +58,16 @@ Point `--ir` at a stereo WAV impulse response. When set, the Freeverb chain is
 replaced with `pedalboard.Convolution`; only `--wet` (mix) and `--hpf` still
 apply. Longer IRs cost more CPU — bump `--blocksize` if it stutters.
 
+Drop a pile of IRs into `irs/` (git-ignored) and use `--random-ir` to pick one
+at random each run:
+
+```bash
+python cathedral.py --output "MacBook Pro Speakers" --random-ir --wet 0.6
+```
+
+The path of the chosen IR is printed at startup so you know what you're
+hearing.
+
 Places to find IRs:
 
 - **[OpenAIR](https://www.openair.hosted.york.ac.uk/)** — free, high-quality
