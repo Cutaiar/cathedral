@@ -23,14 +23,18 @@ to switch macOS input/output devices to BlackHole and back with one command.
 ## Use
 
 ```bash
-audio-route on                                   # loopback: route system audio into BlackHole
+audio-route on --bare                            # loopback: send system audio into BlackHole only
 python cathedral.py --output "MacBook Pro Speakers"
 # play anything, Ctrl+C to stop
 audio-route off                                  # restore your normal devices
 ```
 
+`--bare` is important: without it, `audio-route` uses a Multi-Output Device
+that also plays to your speakers, and the untouched dry signal drowns out
+cathedral's reverb. With `--bare`, cathedral is your only path to the speakers.
+
 Without `audio-route`, do it by hand in **System Settings → Sound**: set output
-to BlackHole 2ch (or a Multi-Output Device that includes it), then run
+to **BlackHole 2ch** directly, then run
 `python cathedral.py --output <your speakers>`.
 
 ## Presets and knobs
