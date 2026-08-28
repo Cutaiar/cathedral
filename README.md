@@ -44,6 +44,27 @@ python cathedral.py --preset cathedral --wet 0.7 --damping 0.05
 `--room`, `--damping`, `--wet`, `--dry`, `--width`, `--hpf` overrides the
 preset value.
 
+## Convolution reverb (real spaces)
+
+Freeverb sounds like *a reverb*. A convolution reverb using the impulse
+response of an actual room sounds like *that room*.
+
+```bash
+python cathedral.py --output "MacBook Pro Speakers" \
+  --ir ~/Downloads/york-minster.wav --wet 0.6
+```
+
+Point `--ir` at a stereo WAV impulse response. When set, the Freeverb chain is
+replaced with `pedalboard.Convolution`; only `--wet` (mix) and `--hpf` still
+apply. Longer IRs cost more CPU — bump `--blocksize` if it stutters.
+
+Places to find IRs:
+
+- **[OpenAIR](https://www.openair.hosted.york.ac.uk/)** — free, high-quality
+  IRs of real spaces (York Minster, Hamilton Mausoleum, Terry's Warehouse).
+- **[EchoThief](http://www.echothief.com/)** — hundreds of odd spaces: caves,
+  stairwells, drainage pipes.
+
 ## Troubleshooting
 
 - **`input overflow`** — callback isn't keeping up. Raise `--blocksize` to 2048.
@@ -57,6 +78,5 @@ preset value.
 
 ## Ideas
 
-Convolution reverb using real impulse responses from [OpenAIR](https://www.openair.hosted.york.ac.uk/)
-(York Minster, Hamilton Mausoleum) is the biggest sonic upgrade over Freeverb.
 Live keyboard control of the knobs would make it feel like an instrument.
+OSC or MIDI CC input would let a phone or hardware controller drive it.

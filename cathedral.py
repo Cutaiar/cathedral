@@ -14,7 +14,7 @@ import sys
 
 import numpy as np
 import sounddevice as sd
-from pedalboard import Pedalboard, Reverb, Gain, HighpassFilter
+from pedalboard import Pedalboard, Reverb, Gain, HighpassFilter, Convolution
 
 
 def list_devices():
@@ -44,7 +44,16 @@ PRESETS = {
 }
 
 
-def build_board(p):
+def build_board(p, ir_path=None, sample_rate=None):
+    if ir_path is not None:
+        # Convolution reverb: the IR (an audio recording of a real space's
+        # response) *is* the space. Freeverb knobs don't apply; --wet is the
+        # dry/wet mix passed straight to pedalboard.Convolution.
+        return Pedalboard([
+            HighpassFilter(cutoff_frequency_hz=p["hpf"]),
+            Convolution(ir_path, mix=p["wet"], sample_rate=sample_rate),
+            Gain(gain_db=-2.0),
+        ])
     return Pedalboard([
         HighpassFilter(cutoff_frequency_hz=p["hpf"]),
         Reverb(
@@ -95,6 +104,11 @@ def main():
     p.add_argument("--width",   type=float, help="stereo width 0..1")
     p.add_argument("--hpf",     type=float, help="pre-reverb high-pass cutoff Hz")
 
+    p.add_argument("--ir", metavar="PATH",
+                   help="convolution reverb using an impulse response WAV "
+                        "(overrides Freeverb; only --wet and --hpf apply). "
+                        "Try IRs from https://www.openair.hosted.york.ac.uk/")
+
     args = p.parse_args()
 
     if args.list:
@@ -110,8 +124,8 @@ def main():
         if v is not None:
             params[k] = v
 
-    board = build_board(params)
     sr = args.samplerate
+    board = build_board(params, ir_path=args.ir, sample_rate=sr)
 
     def callback(indata, outdata, frames, time_info, status):
         if status:
@@ -126,8 +140,11 @@ def main():
     print(f"input  = [{in_idx}] {sd.query_devices(in_idx)['name']}")
     print(f"output = " + (f"[{out_idx}] {sd.query_devices(out_idx)['name']}"
                           if out_idx is not None else "system default"))
-    print(f"preset = {args.preset}  " +
-          "  ".join(f"{k}={params[k]}" for k in ("room", "damping", "wet", "dry", "width", "hpf")))
+    if args.ir:
+        print(f"ir     = {args.ir}  wet={params['wet']}  hpf={params['hpf']}")
+    else:
+        print(f"preset = {args.preset}  " +
+              "  ".join(f"{k}={params[k]}" for k in ("room", "damping", "wet", "dry", "width", "hpf")))
     print("Reverb is running. Ctrl+C to quit.")
 
     with sd.Stream(
