@@ -32,16 +32,27 @@ def find_device(name_substr, kind):
     raise RuntimeError(f"No {kind} device matching {name_substr!r}")
 
 
-def build_board():
-    # Freeverb-style, cranked for a stone-cathedral tail.
+# Space presets. Each is a starting point; individual CLI flags override.
+# room/damping/wet/dry/width map to pedalboard.Reverb; hpf is the low-cut
+# before the reverb (keeps bass out of the tail so things don't turn to mud).
+PRESETS = {
+    "cathedral": dict(room=0.98, damping=0.15, wet=0.55, dry=0.45, width=1.0, hpf=90),
+    "hall":      dict(room=0.85, damping=0.30, wet=0.40, dry=0.60, width=1.0, hpf=80),
+    "chamber":   dict(room=0.60, damping=0.40, wet=0.35, dry=0.65, width=0.9, hpf=100),
+    "plate":     dict(room=0.70, damping=0.50, wet=0.40, dry=0.60, width=1.0, hpf=120),
+    "room":      dict(room=0.40, damping=0.50, wet=0.25, dry=0.75, width=0.8, hpf=100),
+}
+
+
+def build_board(p):
     return Pedalboard([
-        HighpassFilter(cutoff_frequency_hz=90.0),
+        HighpassFilter(cutoff_frequency_hz=p["hpf"]),
         Reverb(
-            room_size=0.98,
-            damping=0.15,
-            wet_level=0.55,
-            dry_level=0.45,
-            width=1.0,
+            room_size=p["room"],
+            damping=p["damping"],
+            wet_level=p["wet"],
+            dry_level=p["dry"],
+            width=p["width"],
             freeze_mode=0.0,
         ),
         Gain(gain_db=-2.0),
@@ -58,6 +69,16 @@ def main():
     p.add_argument("--blocksize", type=int, default=1024,
                    help="smaller = less latency, more chance of xruns")
     p.add_argument("--channels", type=int, default=2)
+
+    p.add_argument("--preset", choices=sorted(PRESETS), default="cathedral",
+                   help="starting point for the reverb (default: cathedral)")
+    p.add_argument("--room",    type=float, help="room size 0..1")
+    p.add_argument("--damping", type=float, help="damping 0..1 (higher = darker/shorter)")
+    p.add_argument("--wet",     type=float, help="wet mix 0..1")
+    p.add_argument("--dry",     type=float, help="dry mix 0..1")
+    p.add_argument("--width",   type=float, help="stereo width 0..1")
+    p.add_argument("--hpf",     type=float, help="pre-reverb high-pass cutoff Hz")
+
     args = p.parse_args()
 
     if args.list:
@@ -67,7 +88,13 @@ def main():
     in_idx = find_device(args.input, "input")
     out_idx = find_device(args.output, "output") if args.output else None
 
-    board = build_board()
+    params = dict(PRESETS[args.preset])
+    for k in ("room", "damping", "wet", "dry", "width", "hpf"):
+        v = getattr(args, k)
+        if v is not None:
+            params[k] = v
+
+    board = build_board(params)
     sr = args.samplerate
 
     def callback(indata, outdata, frames, time_info, status):
@@ -83,6 +110,8 @@ def main():
     print(f"input  = [{in_idx}] {sd.query_devices(in_idx)['name']}")
     print(f"output = " + (f"[{out_idx}] {sd.query_devices(out_idx)['name']}"
                           if out_idx is not None else "system default"))
+    print(f"preset = {args.preset}  " +
+          "  ".join(f"{k}={params[k]}" for k in ("room", "damping", "wet", "dry", "width", "hpf")))
     print("Reverb is running. Ctrl+C to quit.")
 
     with sd.Stream(
