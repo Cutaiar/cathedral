@@ -59,8 +59,24 @@ def build_board(p):
     ])
 
 
+def format_presets():
+    keys = ("room", "damping", "wet", "dry", "width", "hpf")
+    name_w = max(len(n) for n in PRESETS)
+    col_w = {k: max(len(k), max(len(f"{v[k]:g}") for v in PRESETS.values())) for k in keys}
+    header = "  " + " " * name_w + "  " + "  ".join(f"{k:>{col_w[k]}}" for k in keys)
+    rows = [
+        "  " + f"{name:<{name_w}}" + "  " + "  ".join(f"{vals[k]:>{col_w[k]}g}" for k in keys)
+        for name, vals in PRESETS.items()
+    ]
+    return "presets:\n" + header + "\n" + "\n".join(rows)
+
+
 def main():
-    p = argparse.ArgumentParser()
+    p = argparse.ArgumentParser(
+        description="Route system audio through a cathedral-sized reverb.",
+        epilog=format_presets(),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     p.add_argument("--list", action="store_true", help="list audio devices and exit")
     p.add_argument("--input", default="BlackHole", help="input device name substring")
     p.add_argument("--output", default=None,
